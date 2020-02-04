@@ -9,7 +9,7 @@ plugins {
 
 val artifactName = "default-configuration"
 val artifactGroup = "kr.jadekim"
-val artifactVersion = "0.0.1"
+val artifactVersion = "0.0.2"
 group = artifactGroup
 version = artifactVersion
 
@@ -22,17 +22,28 @@ repositories {
 dependencies {
     val jLoggerVersion: String by project
     val commonApiServerVersion: String by project
+    val commonUtilVersion: String by project
+    val ktorExtensionVersion: String by project
     val jacksonVersion: String by project
     val jodaTimeVersion: String by project
+    val ktorVersion: String by project
+    val koinVersion: String by project
 
     implementation(kotlin("stdlib-jdk8"))
 
-    implementation("kr.jadekim:j-logger:$jLoggerVersion")
-    implementation("kr.jadekim:common-api-server:$commonApiServerVersion")
+    compileOnly("kr.jadekim:j-logger:$jLoggerVersion")
+    compileOnly("kr.jadekim:common-api-server:$commonApiServerVersion")
 
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
-
+    compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
     compileOnly("joda-time:joda-time:$jodaTimeVersion")
+
+    compileOnly("kr.jadekim:ktor-extension:$ktorExtensionVersion")
+    compileOnly("io.ktor:ktor-server-host-common:$ktorVersion")
+    compileOnly("io.ktor:ktor-server-netty:$ktorVersion")
+
+    compileOnly("org.koin:koin-core:$koinVersion")
+    compileOnly("org.koin:koin-core-ext:$koinVersion")
+    compileOnly("kr.jadekim:common-util:$commonUtilVersion")
 }
 
 tasks.withType<KotlinCompile> {
