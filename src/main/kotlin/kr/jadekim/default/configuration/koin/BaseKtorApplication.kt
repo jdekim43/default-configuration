@@ -1,6 +1,7 @@
 package kr.jadekim.default.configuration.koin
 
 import kr.jadekim.common.apiserver.enumuration.Environment
+import kr.jadekim.common.apiserver.enumuration.IEnvironment
 import kr.jadekim.common.util.loadProperties
 import kr.jadekim.common.util.parseArgument
 import kr.jadekim.common.util.shutdownHook
@@ -13,20 +14,21 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import org.koin.experimental.builder.getArguments
-import org.koin.experimental.builder.getFirstJavaConstructor
+import org.koin.ext.getFullName
+import org.koin.ext.scope
 import java.io.File
 import java.util.*
 import kotlin.reflect.KClass
 
 abstract class BaseKtorApplication<Server : BaseKtorServer>(
-    val applicationName: String,
-    val serverClass: KClass<Server>,
-    vararg val args: String
+        val applicationName: String,
+        val serverClass: KClass<Server>,
+        vararg val args: String
 ) {
 
     abstract val modules: List<Module>
 
-    lateinit var serviceEnv: Environment
+    lateinit var serviceEnv: IEnvironment
 
     protected val logger = JLog.get(applicationName)
 
@@ -38,17 +40,18 @@ abstract class BaseKtorApplication<Server : BaseKtorServer>(
 
     private val CLASSPATH_PREFIX = "classpath:"
 
-    fun init() {
+    fun init(serviceEnv: IEnvironment? = null) {
         logger.info("Startup $applicationName")
 
         val serviceEnvValue = System.getenv("SERVICE_ENV")?.toLowerCase() ?: "local"
-        serviceEnv = Environment.from(serviceEnvValue)
-            ?: throw IllegalArgumentException("Invalid SERVICE_ENV value")
+        this.serviceEnv = serviceEnv ?: Environment.from(serviceEnvValue)
+                ?: throw IllegalArgumentException("Invalid SERVICE_ENV value")
 
-        JLog.default(serviceEnv)
+        JLog.default(this.serviceEnv)
 
         loadArgument(parseArgument(*args))
         onInit()
+        initialized = true
     }
 
     fun start(blocking: Boolean = true) {
@@ -88,7 +91,7 @@ abstract class BaseKtorApplication<Server : BaseKtorServer>(
     @Suppress("UNCHECKED_CAST")
     open fun createContainer(): Koin = startKoin {
         logger(KoinLogger())
-        koin.propertyRegistry.saveProperties(properties)
+        koin._propertyRegistry.saveProperties(properties)
         modules(module {
             single { serviceEnv }
             single { properties }
@@ -98,9 +101,10 @@ abstract class BaseKtorApplication<Server : BaseKtorServer>(
 
     @Suppress("UNCHECKED_CAST")
     open fun createServer(koin: Koin = this.koin): Server {
-        val constructor = serverClass.getFirstJavaConstructor()
+        val constructor = serverClass.java.constructors.firstOrNull()
+                ?: error("No constructor found for class '${serverClass.getFullName()}'")
 
-        return constructor.newInstance(*getArguments(constructor, koin.rootScope)) as Server
+        return constructor.newInstance(*getArguments(constructor, koin.scope)) as Server
     }
 
     protected open fun loadPropertiesFromArguments(arguments: Map<String, List<String>>) {

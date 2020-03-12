@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
+import kr.jadekim.common.apiserver.enumuration.IEnvironment
 import kr.jadekim.common.apiserver.enumuration.Environment
 import kr.jadekim.default.configuration.jackson.Jackson
 import kr.jadekim.logger.JLog
@@ -20,10 +21,10 @@ private val mapper = Jackson.copy()
     .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
     .registerModule(listSerializeModule)!!
 
-fun JLog.default(serviceEnv: Environment, applicationPackages: List<String> = emptyList(), isAsync: Boolean = true) {
+fun JLog.default(serviceEnv: IEnvironment, applicationPackages: List<String> = emptyList(), isAsync: Boolean = true) {
     autoClassNamer()
 
-    val printer = if (serviceEnv == Environment.LOCAL) {
+    val printer = if (serviceEnv.name == Environment.LOCAL.name) {
         TextPrinter()
     } else {
         JsonPrinter(mapper)
@@ -38,17 +39,17 @@ fun JLog.default(serviceEnv: Environment, applicationPackages: List<String> = em
     defaultLoggerLevel(serviceEnv, applicationPackages)
 }
 
-fun JLog.defaultLoggerLevel(serviceEnv: Environment, applicationPackages: List<String> = emptyList()) {
+fun JLog.defaultLoggerLevel(serviceEnv: IEnvironment, applicationPackages: List<String> = emptyList()) {
     prefix("HttpClientLogger", Level.TRACE)
 
-    when (serviceEnv) {
-        Environment.PRODUCTION, Environment.STAGE -> {
+    when (serviceEnv.name) {
+        Environment.PRODUCTION.name, Environment.STAGE.name -> {
             defaultLoggerLevel = Level.WARNING
             exactly("ErrorLogger", Level.INFO)
 
             applicationPackages.forEach { prefix(it, Level.INFO) }
         }
-        Environment.QA, Environment.DEVELOPMENT -> {
+        Environment.QA.name, Environment.DEVELOPMENT.name -> {
             defaultLoggerLevel = Level.WARNING
             exactly("ErrorLogger", Level.DEBUG)
             exactly("Exposed", Level.DEBUG)
@@ -57,7 +58,7 @@ fun JLog.defaultLoggerLevel(serviceEnv: Environment, applicationPackages: List<S
 
             applicationPackages.forEach { prefix(it, Level.DEBUG) }
         }
-        Environment.LOCAL -> {
+        Environment.LOCAL.name -> {
             defaultLoggerLevel = Level.INFO
             exactly("ErrorLogger", Level.TRACE)
             exactly("Exposed", Level.DEBUG)
