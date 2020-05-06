@@ -19,12 +19,12 @@ import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import io.ktor.util.pipeline.PipelineContext
+import kr.jadekim.common.apiserver.AbstractServer
 import kr.jadekim.common.apiserver.enumuration.Environment
 import kr.jadekim.common.apiserver.enumuration.IEnvironment
 import kr.jadekim.common.apiserver.exception.ApiException
 import kr.jadekim.common.apiserver.exception.UnknownException
 import kr.jadekim.logger.JLog
-import kr.jadekim.logger.context.GlobalLogContext
 import kr.jadekim.logger.integration.KtorLogContextFeature
 import kr.jadekim.logger.model.Level
 import kr.jadekim.server.ktor.converter.JacksonConverter
@@ -35,14 +35,12 @@ import kr.jadekim.server.ktor.locale
 import java.time.Duration
 
 abstract class BaseKtorServer(
-        val serviceEnv: IEnvironment = Environment.LOCAL,
-        val port: Int = 8080,
-        val release: String = "not_set",
+        serviceEnv: IEnvironment = Environment.LOCAL,
+        port: Int = 8080,
+        release: String = "not_set",
         private val jackson: ObjectMapper = jacksonObjectMapper(),
         serverName: String? = null
-) {
-
-    val serverName = serverName ?: javaClass.simpleName!!
+) : AbstractServer(serviceEnv, port, release, serverName){
 
     protected open val filterParameters: List<String> = emptyList()
 
@@ -51,15 +49,6 @@ abstract class BaseKtorServer(
     }
 
     protected val errorLogger = JLog.get("ErrorLogger")
-
-    private val logger = JLog.get(javaClass)
-
-    init {
-        GlobalLogContext["serviceEnv"] = serviceEnv.name
-        GlobalLogContext["servicePort"] = port
-        GlobalLogContext["deployVersion"] = release
-        GlobalLogContext["serverName"] = this@BaseKtorServer.serverName
-    }
 
     abstract fun Routing.configureRoute()
 
@@ -84,7 +73,7 @@ abstract class BaseKtorServer(
             this.release = this@BaseKtorServer.release
             this.filterParameters = this@BaseKtorServer.filterParameters
             this.logContext = {
-                logContext().forEach { (k, v) -> it[k] = v }
+                requestLogContext().forEach { (k, v) -> it[k] = v }
             }
         }
 
@@ -129,7 +118,7 @@ abstract class BaseKtorServer(
 
     }
 
-    open fun PipelineContext<Unit, ApplicationCall>.logContext(): Map<String, Any?> = emptyMap()
+    open fun PipelineContext<Unit, ApplicationCall>.requestLogContext(): Map<String, Any?> = emptyMap()
 
     fun start(blocking: Boolean = true) {
         logger.info("Start $serverName : service_env=${serviceEnv.name}, service_port=$port")
@@ -142,6 +131,10 @@ abstract class BaseKtorServer(
         server.stop(gracePeriod, timeout.toMillis())
         logger.info("Stopped $serverName")
     }
+
+    override fun start() = start(true)
+
+    override fun stop(timeout: Duration) = stop(1, timeout)
 
     protected open suspend fun PipelineContext<*, ApplicationCall>.responseError(exception: ApiException) {
         context.respond(HttpStatusCode.fromValue(exception.httpStatus), exception.toResponse(locale))
