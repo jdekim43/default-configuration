@@ -23,7 +23,9 @@ import kr.jadekim.common.apiserver.AbstractServer
 import kr.jadekim.common.apiserver.enumuration.Environment
 import kr.jadekim.common.apiserver.enumuration.IEnvironment
 import kr.jadekim.common.apiserver.exception.ApiException
-import kr.jadekim.common.apiserver.exception.UnknownException
+import kr.jadekim.common.util.exception.ExceptionLevel
+import kr.jadekim.common.util.exception.FriendlyException
+import kr.jadekim.default.configuration.jackson.Jackson
 import kr.jadekim.logger.JLog
 import kr.jadekim.logger.integration.KtorLogContextFeature
 import kr.jadekim.logger.model.Level
@@ -40,7 +42,7 @@ abstract class BaseKtorServer(
         release: String = "not_set",
         private val jackson: ObjectMapper = jacksonObjectMapper(),
         serverName: String? = null
-) : AbstractServer(serviceEnv, port, release, serverName){
+) : AbstractServer(serviceEnv, port, release, serverName) {
 
     protected open val filterParameters: List<String> = emptyList()
 
@@ -88,29 +90,47 @@ abstract class BaseKtorServer(
             )
         }
 
-        install(StatusPages) { configureErrorHandler() }
+        install(StatusPages) { configureErrorHandler(this) }
     }
 
-    open fun StatusPages.Configuration.configureErrorHandler() {
-        status(HttpStatusCode.InternalServerError) {
-            errorLogger.sLog(Level.ERROR, "InternalServerError-UnknownException")
+    open fun configureErrorHandler(configuration: StatusPages.Configuration) {
+        with(configuration) {
+            status(HttpStatusCode.InternalServerError) {
+                errorLogger.sLog(Level.ERROR, "InternalServerError-UnknownException")
 
-            responseError(UnknownException(Exception()))
-        }
-        exception<Throwable> {
-            val wrapper = UnknownException(it, it.message)
+                responseError(ApiException("UKN-1", 500, logLevel = Level.ERROR))
+            }
+            exception<Throwable> {
+                val wrapper = ApiException("UKN-2", 500, cause = it, message = it.message, logLevel = Level.ERROR)
 
-            errorLogger.sLog(Level.ERROR, wrapper.message ?: it.javaClass.simpleName, wrapper)
+                errorLogger.sLog(Level.ERROR, wrapper.message ?: it.javaClass.simpleName, wrapper)
 
-            responseError(wrapper)
-        }
-        exception<ApiException> {
-            val errorContext = jackson.convertValue<Map<String, Any?>>(it)
-                    .filterKeys { it == "cause" }
+                responseError(wrapper)
+            }
+            exception<FriendlyException> {
+                val errorContext = Jackson.convertValue<Map<String, Any?>>(it)
+                        .filterKeys { it == "cause" }
 
-            errorLogger.sLog(it.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
+                errorLogger.sLog(it.level.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
 
-            responseError(it)
+                responseError(
+                        ApiException(
+                                it.code,
+                                it.level.httpCode,
+                                cause = it,
+                                message = it.message,
+                                logLevel = it.level.logLevel
+                        )
+                )
+            }
+            exception<ApiException> {
+                val errorContext = Jackson.convertValue<Map<String, Any?>>(it)
+                        .filterKeys { it == "cause" }
+
+                errorLogger.sLog(it.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
+
+                responseError(it)
+            }
         }
     }
 
@@ -139,4 +159,17 @@ abstract class BaseKtorServer(
     protected open suspend fun PipelineContext<*, ApplicationCall>.responseError(exception: ApiException) {
         context.respond(HttpStatusCode.fromValue(exception.httpStatus), exception.toResponse(locale))
     }
+
+    private val ExceptionLevel.logLevel
+        get() = when (this) {
+            ExceptionLevel.ERROR -> Level.ERROR
+            ExceptionLevel.WARNING -> Level.WARNING
+            else -> Level.INFO
+        }
+
+    private val ExceptionLevel.httpCode
+        get() = when (this) {
+            ExceptionLevel.ERROR -> 500
+            else -> 400
+        }
 }

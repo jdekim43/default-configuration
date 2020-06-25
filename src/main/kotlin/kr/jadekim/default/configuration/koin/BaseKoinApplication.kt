@@ -13,11 +13,12 @@ import org.koin.core.context.startKoin
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import java.io.File
+import java.io.InputStream
 import java.util.*
 
 abstract class BaseKoinApplication(
-    val applicationName: String,
-    vararg val args: String
+        val applicationName: String,
+        vararg val args: String
 ) {
 
     abstract val modules: List<Module>
@@ -93,34 +94,28 @@ abstract class BaseKoinApplication(
     }.koin
 
     protected open fun loadPropertiesFromArguments(arguments: Map<String, List<String>>) {
-        val externalPropertyFiles = mutableListOf<File>()
+        val externalPropertyFiles = mutableListOf<InputStream>()
 
-        arguments["config"]?.map {
+        (arguments["config"] + arguments["c"]).map {
             if (it.startsWith(CLASSPATH_PREFIX)) {
-                val resource = javaClass.getResource(it.substring(CLASSPATH_PREFIX.length))
-                File(resource.toURI())
+                it.substring(CLASSPATH_PREFIX.length)
+                        .let { path -> javaClass.getResourceAsStream(path) }
             } else {
-                File(it)
+                File(it).inputStream()
             }
-        }?.let {
+        }.let {
             externalPropertyFiles.addAll(it)
-        }
-
-        arguments["c"]?.map {
-            if (it.startsWith(CLASSPATH_PREFIX)) {
-                val resource = javaClass.getResource(it.substring(CLASSPATH_PREFIX.length))
-                File(resource.toURI())
-            } else {
-                File(it)
-            }
-        }?.let {
-            externalPropertyFiles.addAll(it)
-        }
-
-        if (externalPropertyFiles.isEmpty()) {
-            throw IllegalArgumentException("Require propertyFile path -c or --config")
         }
 
         properties = loadProperties(externalPropertyFiles)
+    }
+
+    private operator fun <T> List<T>?.plus(data: List<T>?): List<T> {
+        val result = mutableListOf<T>()
+
+        this?.also { result.addAll(it) }
+        data?.also { result.addAll(it) }
+
+        return result
     }
 }
