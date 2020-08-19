@@ -12,6 +12,8 @@ import org.joda.time.DateTime
 import java.text.DateFormat
 import java.text.FieldPosition
 import java.text.ParsePosition
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.*
 
 class TimestampDateFormat : DateFormat() {
@@ -52,6 +54,29 @@ class DateDeserializer : JsonDeserializer<Date>() {
     }
 }
 
+class LocalDateTimeSerializer : JsonSerializer<LocalDateTime>() {
+
+    override fun serialize(value: LocalDateTime?, gen: JsonGenerator, serializers: SerializerProvider) {
+        value?.atOffset(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()?.let {
+            gen.writeNumber(it)
+        }
+    }
+}
+
+class LocalDateTimeDeserializer : JsonDeserializer<LocalDateTime>() {
+
+    private val logger = JLog.get(javaClass)
+
+    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): LocalDateTime? {
+        return try {
+            LocalDateTime.ofEpochSecond(p.longValue / 1000, (p.longValue % 1000).toInt() * 1000000, ZoneOffset.UTC)
+        } catch (e: Exception) {
+            logger.warning("Fail to deserialize DateTime")
+            null
+        }
+    }
+}
+
 class DateTimeSerializer : JsonSerializer<DateTime>() {
 
     override fun serialize(value: DateTime?, gen: JsonGenerator, serializers: SerializerProvider) {
@@ -76,7 +101,9 @@ class DateTimeDeserializer : JsonDeserializer<DateTime>() {
 }
 
 val timestampModule = SimpleModule()
-    .addSerializer(Date::class.java, DateSerializer())
-    .addDeserializer(Date::class.java, DateDeserializer())
-    .addSerializer(DateTime::class.java, DateTimeSerializer())
-    .addDeserializer(DateTime::class.java, DateTimeDeserializer())!!
+        .addSerializer(Date::class.java, DateSerializer())
+        .addDeserializer(Date::class.java, DateDeserializer())
+        .addSerializer(LocalDateTime::class.java, LocalDateTimeSerializer())
+        .addDeserializer(LocalDateTime::class.java, LocalDateTimeDeserializer())
+        .addSerializer(DateTime::class.java, DateTimeSerializer())
+        .addDeserializer(DateTime::class.java, DateTimeDeserializer())!!
