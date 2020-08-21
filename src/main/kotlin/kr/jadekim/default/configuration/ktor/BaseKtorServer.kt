@@ -1,6 +1,7 @@
 package kr.jadekim.default.configuration.ktor
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.module.kotlin.convertValue
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import io.ktor.application.Application
@@ -108,8 +109,7 @@ abstract class BaseKtorServer(
                 responseError(wrapper)
             }
             exception<FriendlyException> {
-                val errorContext = Jackson.convertValue<Map<String, Any?>>(it)
-                        .filterKeys { it == "cause" }
+                val errorContext = it.data?.let { c -> Jackson.convertValue<Map<String, Any?>>(c) } ?: emptyMap()
 
                 errorLogger.sLog(it.level.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
 
@@ -119,13 +119,13 @@ abstract class BaseKtorServer(
                                 it.level.httpCode,
                                 cause = it,
                                 message = it.message,
-                                logLevel = it.level.logLevel
+                                logLevel = it.level.logLevel,
+                                data = it.data
                         )
                 )
             }
             exception<ApiException> {
-                val errorContext = Jackson.convertValue<Map<String, Any?>>(it)
-                        .filterKeys { it == "cause" }
+                val errorContext = it.data?.let { c -> Jackson.convertValue<Map<String, Any?>>(c) } ?: emptyMap()
 
                 errorLogger.sLog(it.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
 
