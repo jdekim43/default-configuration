@@ -7,6 +7,7 @@ import kr.jadekim.common.util.parseArgument
 import kr.jadekim.common.util.shutdownHook
 import kr.jadekim.default.configuration.jlog.default
 import kr.jadekim.logger.JLog
+import kr.jadekim.logger.context.GlobalLogContext
 import kr.jadekim.logger.integration.KoinLogger
 import org.koin.core.Koin
 import org.koin.core.context.startKoin
@@ -39,12 +40,12 @@ abstract class BaseKoinApplication(
     abstract fun stopApplication()
 
     fun init(serviceEnv: IEnvironment? = null) {
-
         val serviceEnvValue = System.getenv("SERVICE_ENV")?.toLowerCase() ?: "local"
         this.serviceEnv = serviceEnv ?: Environment.from(serviceEnvValue)
                 ?: throw IllegalArgumentException("Invalid SERVICE_ENV value")
 
         JLog.default(this.serviceEnv)
+        GlobalLogContext["applicationName"] = applicationName
         logger.info("Startup $applicationName")
 
         loadArgument(parseArgument(*args))

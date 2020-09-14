@@ -2,14 +2,15 @@ package kr.jadekim.default.configuration.koin
 
 import kr.jadekim.common.apiserver.AbstractServer
 import org.koin.core.Koin
+import org.koin.core.error.NoBeanDefFoundException
 import org.koin.experimental.builder.getArguments
 import org.koin.ext.getFullName
 import kotlin.reflect.KClass
 
 abstract class BaseServerApplication<Server : AbstractServer>(
-    applicationName: String,
-    val serverClass: KClass<Server>,
-    vararg args: String
+        applicationName: String,
+        val serverClass: KClass<Server>,
+        vararg args: String
 ) : BaseKoinApplication(applicationName, *args) {
 
     protected lateinit var server: Server
@@ -38,9 +39,13 @@ abstract class BaseServerApplication<Server : AbstractServer>(
 
     @Suppress("UNCHECKED_CAST")
     open fun createServer(koin: Koin = this.koin): Server {
-        val constructor = serverClass.java.constructors.firstOrNull()
-            ?: error("No constructor found for class '${serverClass.getFullName()}'")
+        return try {
+            koin.get(serverClass::class)
+        } catch (e: NoBeanDefFoundException) {
+            val constructor = serverClass.java.constructors.firstOrNull()
+                    ?: error("No constructor found for class '${serverClass.getFullName()}'")
 
-        return constructor.newInstance(*getArguments(constructor, koin._scopeRegistry.rootScope)) as Server
+            constructor.newInstance(*getArguments(constructor, koin._scopeRegistry.rootScope)) as Server
+        }
     }
 }

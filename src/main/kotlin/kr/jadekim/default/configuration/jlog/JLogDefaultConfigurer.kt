@@ -1,25 +1,21 @@
 package kr.jadekim.default.configuration.jlog
 
-import com.fasterxml.jackson.annotation.JsonInclude
-import com.fasterxml.jackson.core.JsonGenerator
-import com.fasterxml.jackson.databind.JsonSerializer
-import com.fasterxml.jackson.databind.SerializerProvider
-import com.fasterxml.jackson.databind.module.SimpleModule
-import kr.jadekim.common.apiserver.enumuration.IEnvironment
+import com.google.gson.JsonElement
+import com.google.gson.JsonPrimitive
+import com.google.gson.JsonSerializationContext
+import com.google.gson.JsonSerializer
 import kr.jadekim.common.apiserver.enumuration.Environment
-import kr.jadekim.default.configuration.jackson.Jackson
+import kr.jadekim.common.apiserver.enumuration.IEnvironment
+import kr.jadekim.default.configuration.gson.Gson
 import kr.jadekim.logger.JLog
 import kr.jadekim.logger.model.Level
-import kr.jadekim.logger.printer.JsonPrinter
+import kr.jadekim.logger.printer.GsonPrinter
 import kr.jadekim.logger.printer.TextPrinter
+import java.lang.reflect.Type
 
-private val listSerializeModule = SimpleModule()
-    .addSerializer(List::class.java, ListSerializer())
-
-private val mapper = Jackson.copy()
-    .setSerializationInclusion(JsonInclude.Include.NON_NULL)
-    .setSerializationInclusion(JsonInclude.Include.NON_EMPTY)
-    .registerModule(listSerializeModule)!!
+private val gson = Gson.newBuilder()
+        .registerTypeAdapter(List::class.java, ListSerializer())
+        .create()
 
 fun JLog.default(serviceEnv: IEnvironment, applicationPackages: List<String> = emptyList(), isAsync: Boolean = true) {
     autoClassNamer()
@@ -27,7 +23,7 @@ fun JLog.default(serviceEnv: IEnvironment, applicationPackages: List<String> = e
     val printer = if (serviceEnv.name == Environment.LOCAL.name) {
         TextPrinter()
     } else {
-        JsonPrinter(mapper)
+        GsonPrinter(gson, traceMaxLength = Integer.MAX_VALUE)
     }
 
     if (isAsync) {
@@ -70,13 +66,9 @@ fun JLog.defaultLoggerLevel(serviceEnv: IEnvironment, applicationPackages: List<
     }
 }
 
-class ListSerializer : JsonSerializer<List<*>>() {
+class ListSerializer : JsonSerializer<List<*>> {
 
-    private val listSerializeMapper = Jackson
-
-    override fun serialize(value: List<*>?, gen: JsonGenerator, serializers: SerializerProvider) {
-        value
-            ?.let { listSerializeMapper.writeValueAsString(it) }
-            ?.let { gen.writeString(it) }
+    override fun serialize(src: List<*>, typeOfSrc: Type, context: JsonSerializationContext): JsonElement {
+        return JsonPrimitive(gson.toJson(src))
     }
 }

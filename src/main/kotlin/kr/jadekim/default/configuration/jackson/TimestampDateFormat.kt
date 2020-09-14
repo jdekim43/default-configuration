@@ -8,7 +8,6 @@ import com.fasterxml.jackson.databind.JsonSerializer
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.module.SimpleModule
 import kr.jadekim.logger.JLog
-import org.joda.time.DateTime
 import java.text.DateFormat
 import java.text.FieldPosition
 import java.text.ParsePosition
@@ -77,33 +76,8 @@ class LocalDateTimeDeserializer : JsonDeserializer<LocalDateTime>() {
     }
 }
 
-class DateTimeSerializer : JsonSerializer<DateTime>() {
-
-    override fun serialize(value: DateTime?, gen: JsonGenerator, serializers: SerializerProvider) {
-        value?.toDate()?.time?.let {
-            gen.writeNumber(it)
-        }
-    }
-}
-
-class DateTimeDeserializer : JsonDeserializer<DateTime>() {
-
-    private val logger = JLog.get(javaClass)
-
-    override fun deserialize(p: JsonParser, ctxt: DeserializationContext): DateTime? {
-        return try {
-            DateTime(p.longValue)
-        } catch (e: Exception) {
-            logger.warning("Fail to deserialize DateTime")
-            null
-        }
-    }
-}
-
 val timestampModule = SimpleModule()
         .addSerializer(Date::class.java, DateSerializer())
         .addDeserializer(Date::class.java, DateDeserializer())
         .addSerializer(LocalDateTime::class.java, LocalDateTimeSerializer())
-        .addDeserializer(LocalDateTime::class.java, LocalDateTimeDeserializer())
-        .addSerializer(DateTime::class.java, DateTimeSerializer())
-        .addDeserializer(DateTime::class.java, DateTimeDeserializer())!!
+        .addDeserializer(LocalDateTime::class.java, LocalDateTimeDeserializer())!!

@@ -2,14 +2,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import java.util.Date
 
 plugins {
-    kotlin("jvm") version "1.3.72"
+    kotlin("jvm") version "1.4.10"
     `maven-publish`
     id("com.jfrog.bintray") version "1.8.4"
 }
 
 val artifactName = "default-configuration"
 val artifactGroup = "kr.jadekim"
-val artifactVersion = "1.1.7"
+val artifactVersion = "1.2.0"
 group = artifactGroup
 version = artifactVersion
 
@@ -25,7 +25,7 @@ dependencies {
     val commonUtilVersion: String by project
     val ktorExtensionVersion: String by project
     val jacksonVersion: String by project
-    val jodaTimeVersion: String by project
+    val gsonVersion: String by project
     val ktorVersion: String by project
     val koinVersion: String by project
 
@@ -36,11 +36,12 @@ dependencies {
     compileOnly("kr.jadekim:common-api-server:$commonApiServerVersion")
 
     compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
-    compileOnly("joda-time:joda-time:$jodaTimeVersion")
+    compileOnly("com.google.code.gson:gson:$gsonVersion")
 
     compileOnly("kr.jadekim:ktor-extension:$ktorExtensionVersion")
     compileOnly("io.ktor:ktor-server-host-common:$ktorVersion")
     compileOnly("io.ktor:ktor-server-netty:$ktorVersion")
+    compileOnly("io.ktor:ktor-gson:$ktorVersion")
 
     compileOnly("org.koin:koin-core:$koinVersion")
     compileOnly("org.koin:koin-core-ext:$koinVersion")

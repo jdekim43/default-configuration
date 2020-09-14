@@ -1,16 +1,12 @@
 package kr.jadekim.default.configuration.ktor
 
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ObjectNode
-import com.fasterxml.jackson.module.kotlin.convertValue
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import io.ktor.application.Application
 import io.ktor.application.ApplicationCall
 import io.ktor.application.install
-import io.ktor.features.AutoHeadResponse
-import io.ktor.features.ContentNegotiation
-import io.ktor.features.StatusPages
-import io.ktor.features.XForwardedHeaderSupport
+import io.ktor.features.*
+import io.ktor.gson.GsonConverter
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.response.respond
@@ -26,14 +22,12 @@ import kr.jadekim.common.apiserver.enumuration.IEnvironment
 import kr.jadekim.common.apiserver.exception.ApiException
 import kr.jadekim.common.util.exception.ExceptionLevel
 import kr.jadekim.common.util.exception.FriendlyException
-import kr.jadekim.default.configuration.jackson.Jackson
+import kr.jadekim.default.configuration.gson.Gson
 import kr.jadekim.logger.JLog
 import kr.jadekim.logger.integration.KtorLogContextFeature
 import kr.jadekim.logger.model.Level
-import kr.jadekim.server.ktor.converter.JacksonConverter
 import kr.jadekim.server.ktor.feature.PathNormalizeFeature
 import kr.jadekim.server.ktor.feature.RequestLogFeature
-import kr.jadekim.server.ktor.jsonBodyMapper
 import kr.jadekim.server.ktor.locale
 import java.time.Duration
 
@@ -41,11 +35,11 @@ abstract class BaseKtorServer(
         serviceEnv: IEnvironment = Environment.LOCAL,
         port: Int = 8080,
         release: String = "not_set",
-        private val jackson: ObjectMapper = jacksonObjectMapper(),
+        private val gson: Gson = Gson,
         serverName: String? = null
 ) : AbstractServer(serviceEnv, port, release, serverName) {
 
-    protected open val filterParameters: List<String> = emptyList()
+    protected open val filterBodyLog: ApplicationCall.() -> Boolean = { false }
 
     protected open val server: ApplicationEngine = embeddedServer(Netty, port = port) {
         configure()
@@ -64,6 +58,7 @@ abstract class BaseKtorServer(
         }
     }
 
+    @Suppress("EXPERIMENTAL_API_USAGE")
     open fun Application.installFeature() {
         install(KtorLogContextFeature)
 
@@ -71,10 +66,14 @@ abstract class BaseKtorServer(
 
         install(PathNormalizeFeature)
 
+        install(DoubleReceive) {
+            receiveEntireContent = true
+        }
+
         install(RequestLogFeature) {
             this.serviceEnv = this@BaseKtorServer.serviceEnv.name
             this.release = this@BaseKtorServer.release
-            this.filterParameters = this@BaseKtorServer.filterParameters
+            this.logBody = this@BaseKtorServer.filterBodyLog
             this.logContext = {
                 requestLogContext().forEach { (k, v) -> it[k] = v }
             }
@@ -82,19 +81,15 @@ abstract class BaseKtorServer(
 
         install(AutoHeadResponse)
 
-        jsonBodyMapper = jackson
-
         install(ContentNegotiation) {
-            register(
-                    ContentType.Application.Json,
-                    JacksonConverter(jackson)
-            )
+            register(ContentType.Application.Json, GsonConverter(gson))
         }
 
         install(StatusPages) { configureErrorHandler(this) }
     }
 
     open fun configureErrorHandler(configuration: StatusPages.Configuration) {
+
         with(configuration) {
             status(HttpStatusCode.InternalServerError) {
                 errorLogger.sLog(Level.ERROR, "InternalServerError-UnknownException")
@@ -109,9 +104,7 @@ abstract class BaseKtorServer(
                 responseError(wrapper)
             }
             exception<FriendlyException> {
-                val errorContext = it.data?.let { c -> Jackson.convertValue<Map<String, Any?>>(c) } ?: emptyMap()
-
-                errorLogger.sLog(it.level.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
+                errorLogger.sLog(it.level.logLevel, it.message ?: it.javaClass.simpleName, it, it.data.toMap())
 
                 responseError(
                         ApiException(
@@ -125,9 +118,7 @@ abstract class BaseKtorServer(
                 )
             }
             exception<ApiException> {
-                val errorContext = it.data?.let { c -> Jackson.convertValue<Map<String, Any?>>(c) } ?: emptyMap()
-
-                errorLogger.sLog(it.logLevel, it.message ?: it.javaClass.simpleName, it, errorContext)
+                errorLogger.sLog(it.logLevel, it.message ?: it.javaClass.simpleName, it, it.data.toMap())
 
                 responseError(it)
             }
@@ -172,4 +163,7 @@ abstract class BaseKtorServer(
             ExceptionLevel.ERROR -> 500
             else -> 400
         }
+
+    private val convertType = object : TypeToken<Map<String, Any?>>() {}.type
+    private fun Any?.toMap() = gson.fromJson<Map<String, Any?>>(gson.toJson(this), convertType) ?: emptyMap()
 }
