@@ -87,15 +87,12 @@ abstract class BaseKoinApplication(
     open fun createContainer(): Koin = startKoin {
         logger(KoinLogger())
         koin._propertyRegistry.saveProperties(properties)
-        koin.loadModules(
+        modules(
                 modules + module {
                     single { serviceEnv }
                     single { properties }
                 }
         )
-        koin.createRootScope()
-        //https://github.com/InsertKoinIO/koin/issues/871
-        //Fixed in 2.2.0
     }.koin
 
     protected open fun loadPropertiesFromArguments(arguments: Map<String, List<String>>) {
