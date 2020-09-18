@@ -9,7 +9,7 @@ plugins {
 
 val artifactName = "default-configuration"
 val artifactGroup = "kr.jadekim"
-val artifactVersion = "1.2.2"
+val artifactVersion = "1.2.3"
 group = artifactGroup
 version = artifactVersion
 
@@ -25,7 +25,7 @@ dependencies {
     val commonUtilVersion: String by project
     val ktorExtensionVersion: String by project
     val jacksonVersion: String by project
-    val gsonVersion: String by project
+    val gsonKotlinVersion: String by project
     val ktorVersion: String by project
     val koinVersion: String by project
 
@@ -36,7 +36,7 @@ dependencies {
     compileOnly("kr.jadekim:common-api-server:$commonApiServerVersion")
 
     compileOnly("com.fasterxml.jackson.module:jackson-module-kotlin:$jacksonVersion")
-    compileOnly("com.google.code.gson:gson:$gsonVersion")
+    compileOnly("kr.jadekim:gson-kotlin:$gsonKotlinVersion")
 
     compileOnly("kr.jadekim:ktor-extension:$ktorExtensionVersion")
     compileOnly("io.ktor:ktor-server-host-common:$ktorVersion")
