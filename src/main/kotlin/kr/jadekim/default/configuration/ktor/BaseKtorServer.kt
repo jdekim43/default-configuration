@@ -2,20 +2,15 @@ package kr.jadekim.default.configuration.ktor
 
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import io.ktor.application.Application
-import io.ktor.application.ApplicationCall
-import io.ktor.application.install
+import io.ktor.application.*
 import io.ktor.features.*
-import io.ktor.gson.GsonConverter
-import io.ktor.http.ContentType
-import io.ktor.http.HttpStatusCode
-import io.ktor.response.respond
-import io.ktor.routing.Routing
-import io.ktor.routing.routing
-import io.ktor.server.engine.ApplicationEngine
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
-import io.ktor.util.pipeline.PipelineContext
+import io.ktor.gson.*
+import io.ktor.http.*
+import io.ktor.response.*
+import io.ktor.routing.*
+import io.ktor.server.engine.*
+import io.ktor.server.netty.*
+import io.ktor.util.pipeline.*
 import kr.jadekim.common.apiserver.AbstractServer
 import kr.jadekim.common.apiserver.enumuration.Environment
 import kr.jadekim.common.apiserver.enumuration.IEnvironment
@@ -32,11 +27,11 @@ import kr.jadekim.server.ktor.locale
 import java.time.Duration
 
 abstract class BaseKtorServer(
-        serviceEnv: IEnvironment = Environment.LOCAL,
-        port: Int = 8080,
-        release: String = "not_set",
-        private val gson: Gson = Gson,
-        serverName: String? = null
+    serviceEnv: IEnvironment = Environment.LOCAL,
+    port: Int = 8080,
+    release: String = "not_set",
+    private val gson: Gson = Gson,
+    serverName: String? = null
 ) : AbstractServer(serviceEnv, port, release, serverName) {
 
     protected open val filterBodyLog: ApplicationCall.() -> Boolean = { false }
@@ -81,15 +76,16 @@ abstract class BaseKtorServer(
 
         install(AutoHeadResponse)
 
-        install(ContentNegotiation) {
-            register(ContentType.Application.Json, GsonConverter(gson))
-        }
+        install(ContentNegotiation) { configureContentNegotiation() }
 
         install(StatusPages) { configureErrorHandler(this) }
     }
 
-    open fun configureErrorHandler(configuration: StatusPages.Configuration) {
+    open fun ContentNegotiation.Configuration.configureContentNegotiation() {
+        register(ContentType.Application.Json, GsonConverter(gson))
+    }
 
+    open fun configureErrorHandler(configuration: StatusPages.Configuration) {
         with(configuration) {
             status(HttpStatusCode.InternalServerError) {
                 errorLogger.sLog(Level.ERROR, "InternalServerError-UnknownException")
@@ -107,14 +103,14 @@ abstract class BaseKtorServer(
                 errorLogger.sLog(it.level.logLevel, it.message ?: it.javaClass.simpleName, it, it.data.toMap())
 
                 responseError(
-                        ApiException(
-                                it.code,
-                                it.level.httpCode,
-                                cause = it,
-                                message = it.message,
-                                logLevel = it.level.logLevel,
-                                data = it.data
-                        )
+                    ApiException(
+                        it.code,
+                        it.level.httpCode,
+                        cause = it,
+                        message = it.message,
+                        logLevel = it.level.logLevel,
+                        data = it.data
+                    )
                 )
             }
             exception<ApiException> {
